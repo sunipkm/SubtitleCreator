@@ -911,7 +911,7 @@ class Player(QWidget):
         print(key)
 
     def loadSRT(self):
-        srtName, _ = QFileDialog.getOpenFileName(self, "Load SRT")
+        srtName, _ = QFileDialog.getOpenFileName(self, "Load SRT", filter = 'SubRip (*.srt)')
         fileInfo = QFileInfo(srtName)
         if fileInfo.exists():
             ifile = open(fileInfo.absoluteFilePath(), 'r')
@@ -1027,9 +1027,11 @@ class Player(QWidget):
             print('Invalid value %s'%(self.getEndTimeDeltaMs.text()))
 
     def seekForwardMS(self):
+        self.player.pause()
         self.player.setPosition(self.player.position() + self.forwardTimeMs)
     
     def seekBackwardMS(self):
+        self.player.pause()
         self.player.setPosition(self.player.position() - self.backwardTimeMs)
 
     def statusChanged(self, status):
