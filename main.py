@@ -455,6 +455,17 @@ class SRTData():
                 nextLineIsTS = True
                 continue
 
+    def storeSRT(self, stream: TextIOWrapper):
+        if stream is None:
+            if self.mainWindow is not None:
+                self.mainWindow.showErrorMessage('LoadSRT: Stream is None')
+            return
+        for idx, data in enumerate(self.rawdata):
+            stream.write('%d\n'%(idx + 1))
+            stream.write('%s --> %s\n'%(self.tstampToStr(data[0]), self.tstampToStr(data[1])))
+            stream.write('%s\n', data[2])
+            stream.write('\n')
+
     def addItem(self, vals: list):
         if len(vals) != 3:
             msg = '%s has invalid length'%(str(vals))
@@ -553,7 +564,10 @@ class SRTData():
         return
 
     # privates
-    def tstampToStr(self, currentInfo: int) -> str:
+    @staticmethod
+    def tstampToStr(currentInfo: int) -> str:
+        if currentInfo < 0:
+            return '--:--:--,---'
         currentTime = QTime((currentInfo/3600)%60, (currentInfo/60)%60,
                     currentInfo%60, (currentInfo*1000)%1000)
         format = 'hh:mm:ss,zzz'
@@ -679,6 +693,9 @@ class Player(QWidget):
         self.trackInfo = ""
         self.statusInfo = ""
         self.duration = 0
+
+        self.subStartPos = -1
+        self.subEndPos = -1
 
         self.player = QMediaPlayer()
         self.playlist = QMediaPlaylist()
@@ -894,15 +911,19 @@ class Player(QWidget):
         print(key)
 
     def loadSRT(self):
-        srtName, _ = QFileDialog.getSaveFileName(self, "Load SRT")
+        srtName, _ = QFileDialog.getOpenFileName(self, "Load SRT")
         fileInfo = QFileInfo(srtName)
         if fileInfo.exists():
             ifile = open(fileInfo.absoluteFilePath(), 'r')
-            # parse subtitle data
+            self.subtitleDisplayTable.subtitleData.loadSRT(ifile)
             ifile.close()
 
     def storeSRT(self):
-
+        srtName, _ = QFileDialog.getSaveFileName(self, "Save SRT", filter = 'SubRip (*.srt)')
+        fileInfo = QFileInfo(srtName)
+        ofile = open(fileInfo.absoluteFilePath(), 'w')
+        self.subtitleDisplayTable.subtitleData.storeSRT(ofile)
+        ofile.close()
         return
 
     def markSubStart(self):
