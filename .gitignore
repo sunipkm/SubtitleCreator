@@ -1,0 +1,6 @@
+**/*.txt
+**/*.srt
+**/build
+**/dist
+**/__pycache__
+**/*.spec

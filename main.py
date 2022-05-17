@@ -41,12 +41,12 @@
 ##
 #############################################################################
 
-
-from ctypes import alignment
-from typing import Text
+from threading import Thread
+import time
+from PyQt5.Qt import QTextOption
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Q_ARG, QAbstractItemModel,
         QFileInfo, qFuzzyCompare, QMetaObject, QModelIndex, QObject, Qt,
-        QThread, QTime, QUrl, QSize,)
+        QThread, QTime, QUrl, QSize)
 from PyQt5.QtGui import QColor, qGray, QImage, QPainter, QPalette, QIcon
 from PyQt5.QtMultimedia import (QAbstractVideoBuffer, QMediaContent,
         QMediaMetaData, QMediaPlayer, QMediaPlaylist, QVideoFrame, QVideoProbe)
@@ -54,10 +54,15 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
         QFormLayout, QHBoxLayout, QLabel, QListView, QMessageBox, QPushButton,
         QSizePolicy, QSlider, QStyle, QToolButton, QVBoxLayout, QWidget, QLineEdit, QPlainTextEdit,
-        QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QLayout)
+        QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QLayout, QProgressBar)
 from io import TextIOWrapper
 import re
 from itertools import chain
+from inspect import currentframe
+
+def get_linenumber():
+    cf = currentframe()
+    return cf.f_back.f_lineno
 
 
 class VideoWidget(QVideoWidget):
@@ -279,102 +284,102 @@ class PlayerControls(QWidget):
     def updateRate(self):
         self.changeRate.emit(self.playbackRate())
 
-class FrameProcessor(QObject):
+# class FrameProcessor(QObject):
 
-    histogramReady = pyqtSignal(list)
+#     histogramReady = pyqtSignal(list)
 
-    @pyqtSlot(QVideoFrame, int)
-    def processFrame(self, frame, levels):
-        histogram = [0.0] * levels
+#     @pyqtSlot(QVideoFrame, int)
+#     def processFrame(self, frame, levels):
+#         histogram = [0.0] * levels
 
-        if levels and frame.map(QAbstractVideoBuffer.ReadOnly):
-            pixelFormat = frame.pixelFormat()
+#         if levels and frame.map(QAbstractVideoBuffer.ReadOnly):
+#             pixelFormat = frame.pixelFormat()
 
-            if pixelFormat == QVideoFrame.Format_YUV420P or pixelFormat == QVideoFrame.Format_NV12:
-                # Process YUV data.
-                bits = frame.bits()
-                for idx in range(frame.height() * frame.width()):
-                    histogram[(bits[idx] * levels) >> 8] += 1.0
-            else:
-                imageFormat = QVideoFrame.imageFormatFromPixelFormat(pixelFormat)
-                if imageFormat != QImage.Format_Invalid:
-                    # Process RGB data.
-                    image = QImage(frame.bits(), frame.width(), frame.height(), imageFormat)
+#             if pixelFormat == QVideoFrame.Format_YUV420P or pixelFormat == QVideoFrame.Format_NV12:
+#                 # Process YUV data.
+#                 bits = frame.bits()
+#                 for idx in range(frame.height() * frame.width()):
+#                     histogram[(bits[idx] * levels) >> 8] += 1.0
+#             else:
+#                 imageFormat = QVideoFrame.imageFormatFromPixelFormat(pixelFormat)
+#                 if imageFormat != QImage.Format_Invalid:
+#                     # Process RGB data.
+#                     image = QImage(frame.bits(), frame.width(), frame.height(), imageFormat)
 
-                    for y in range(image.height()):
-                        for x in range(image.width()):
-                            pixel = image.pixel(x, y)
-                            histogram[(qGray(pixel) * levels) >> 8] += 1.0
+#                     for y in range(image.height()):
+#                         for x in range(image.width()):
+#                             pixel = image.pixel(x, y)
+#                             histogram[(qGray(pixel) * levels) >> 8] += 1.0
 
-            # Find the maximum value.
-            maxValue = 0.0
-            for value in histogram:
-                if value > maxValue:
-                    maxValue = value
+#             # Find the maximum value.
+#             maxValue = 0.0
+#             for value in histogram:
+#                 if value > maxValue:
+#                     maxValue = value
 
-            # Normalise the values between 0 and 1.
-            if maxValue > 0.0:
-                for i in range(len(histogram)):
-                    histogram[i] /= maxValue
+#             # Normalise the values between 0 and 1.
+#             if maxValue > 0.0:
+#                 for i in range(len(histogram)):
+#                     histogram[i] /= maxValue
 
-            frame.unmap()
+#             frame.unmap()
 
-        self.histogramReady.emit(histogram)
+#         self.histogramReady.emit(histogram)
 
-class HistogramWidget(QWidget):
+# class HistogramWidget(QWidget):
 
-    def __init__(self, parent=None):
-        super(HistogramWidget, self).__init__(parent)
+#     def __init__(self, parent=None):
+#         super(HistogramWidget, self).__init__(parent)
 
-        self.m_levels = 128
-        self.m_isBusy = False
-        self.m_histogram = []
-        self.m_processor = FrameProcessor()
-        self.m_processorThread = QThread()
+#         self.m_levels = 128
+#         self.m_isBusy = False
+#         self.m_histogram = []
+#         self.m_processor = FrameProcessor()
+#         self.m_processorThread = QThread()
 
-        self.m_processor.moveToThread(self.m_processorThread)
-        self.m_processor.histogramReady.connect(self.setHistogram)
+#         self.m_processor.moveToThread(self.m_processorThread)
+#         self.m_processor.histogramReady.connect(self.setHistogram)
 
-    def __del__(self):
-        self.m_processorThread.quit()
-        self.m_processorThread.wait(10000)
+#     def __del__(self):
+#         self.m_processorThread.quit()
+#         self.m_processorThread.wait(10000)
 
-    def setLevels(self, levels):
-        self.m_levels = levels
+#     def setLevels(self, levels):
+#         self.m_levels = levels
 
-    def processFrame(self, frame):
-        if self.m_isBusy:
-            return
+#     def processFrame(self, frame):
+#         if self.m_isBusy:
+#             return
 
-        self.m_isBusy = True
-        QMetaObject.invokeMethod(self.m_processor, 'processFrame',
-                Qt.QueuedConnection, Q_ARG(QVideoFrame, frame),
-                Q_ARG(int, self.m_levels))
+#         self.m_isBusy = True
+#         QMetaObject.invokeMethod(self.m_processor, 'processFrame',
+#                 Qt.QueuedConnection, Q_ARG(QVideoFrame, frame),
+#                 Q_ARG(int, self.m_levels))
 
-    @pyqtSlot(list)
-    def setHistogram(self, histogram):
-        self.m_isBusy = False
-        self.m_histogram = list(histogram)
-        self.update()
+#     @pyqtSlot(list)
+#     def setHistogram(self, histogram):
+#         self.m_isBusy = False
+#         self.m_histogram = list(histogram)
+#         self.update()
 
-    def paintEvent(self, event):
-        painter = QPainter(self)
+#     def paintEvent(self, event):
+#         painter = QPainter(self)
 
-        if len(self.m_histogram) == 0:
-            painter.fillRect(0, 0, self.width(), self.height(),
-                    QColor.fromRgb(0, 0, 0))
-            return
+#         if len(self.m_histogram) == 0:
+#             painter.fillRect(0, 0, self.width(), self.height(),
+#                     QColor.fromRgb(0, 0, 0))
+#             return
 
-        barWidth = self.width() / float(len(self.m_histogram))
+#         barWidth = self.width() / float(len(self.m_histogram))
 
-        for i, value in enumerate(self.m_histogram):
-            h = value * self.height()
-            # Draw the level.
-            painter.fillRect(barWidth * i, self.height() - h,
-                    barWidth * (i + 1), self.height(), Qt.red)
-            # Clear the rest of the control.
-            painter.fillRect(barWidth * i, 0, barWidth * (i + 1),
-                    self.height() - h, Qt.black)
+#         for i, value in enumerate(self.m_histogram):
+#             h = value * self.height()
+#             # Draw the level.
+#             painter.fillRect(barWidth * i, self.height() - h,
+#                     barWidth * (i + 1), self.height(), Qt.red)
+#             # Clear the rest of the control.
+#             painter.fillRect(barWidth * i, 0, barWidth * (i + 1),
+#                     self.height() - h, Qt.black)
 
 class DoubleSlider(QSlider):
 
@@ -412,29 +417,48 @@ class DoubleSlider(QSlider):
 class Player(QWidget): # forward declaration
     pass
 
-class SRTData():
+class SubDataTableWidget(QTableWidget):
+    pass
+
+class SRTData(QThread):
     """
     Create a new subtitle data storage with associated display table
     """
-    def __init__(self, table: QTableWidget, mainWindow: Player = None):
+    progress = pyqtSignal(int)
+    complete = pyqtSignal()
+
+    def __init__(self, table: SubDataTableWidget, mainWindow: Player = None):
+        super(SRTData, self).__init__()
         self.rawdata = []
         self.table = table
         self.mainWindow = mainWindow
+        self.total_lines = -1
+        self.current_lines = 0
+        self.stream = None
         if table.columnCount() != 3:
             table.setColumnCount(3)
         self.updateDisplayTable()
 
+    def __del__(self):
+        self.wait()
+
     def loadSRT(self, stream: TextIOWrapper):
         if stream is None:
-            if self.mainWindow is not None:
-                self.mainWindow.showErrorMessage('LoadSRT: Stream is None')
-            return
+            raise IOError('SRTData::loadSRT(): Invalid Stream')
+        self.stream = stream
+    
+    def run(self):
+        stream = self.stream
+        self.total_lines = len(stream.readlines())
+        stream.seek(0, 0)
         nextLineIsTS = False
         nextLineIsData = False
         data = None
         datastr = ''
+        self.current_lines = 0
         for line in stream:
-            print(line)
+            self.current_lines += 1
+            self.progress.emit(int(100 * (self.current_lines / self.total_lines)))
             if nextLineIsTS and re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9],[0-9][0-9][0-9] --> [0-9][0-9]:[0-9][0-9]:[0-9][0-9],[0-9][0-9][0-9]', line):
                 data = []
                 data.append(self.strToTstamp(line.split('-->')[0]))
@@ -448,12 +472,15 @@ class SRTData():
                     datastr += line
                 else:
                     data.append(datastr)
-                    self.addItem(data)
+                    self.addItem(data[0], data[1], data[2])
                     data = None
                     nextLineIsData = False
             elif re.match('^[0-9]*$', line):
                 nextLineIsTS = True
                 continue
+        stream.close()
+        self.current_lines = -1
+        self.complete.emit()
 
     def storeSRT(self, stream: TextIOWrapper):
         if stream is None:
@@ -463,16 +490,8 @@ class SRTData():
         for idx, data in enumerate(self.rawdata):
             stream.write('%d\n'%(idx + 1))
             stream.write('%s --> %s\n'%(self.tstampToStr(data[0]), self.tstampToStr(data[1])))
-            stream.write('%s\n', data[2])
+            stream.write('%s\n'%(data[2]))
             stream.write('\n')
-
-    def addItem(self, vals: list):
-        if len(vals) != 3:
-            msg = '%s has invalid length'%(str(vals))
-            print(msg)
-            if self.mainWindow is not None:
-                self.mainWindow.showErrorMessage(msg)
-        self.addItem(self, vals[0], vals[1], vals[2])
             
     def addItem(self, start: int, stop: int, text: str):
         """
@@ -568,8 +587,9 @@ class SRTData():
     def tstampToStr(currentInfo: int) -> str:
         if currentInfo < 0:
             return '--:--:--,---'
-        currentTime = QTime((currentInfo/3600)%60, (currentInfo/60)%60,
-                    currentInfo%60, (currentInfo*1000)%1000)
+        currentInfo /= 1000.0
+        currentTime = QTime((int(currentInfo)//3600)%60, (int(currentInfo)//60)%60,
+                    int(currentInfo)%60, int(currentInfo*1000)%1000)
         format = 'hh:mm:ss,zzz'
         return currentTime.toString(format)
     
@@ -625,10 +645,10 @@ class Delegate(QStyledItemDelegate):
     def setEditorData(self, item, index):
         row = index.row()
         col = index.column()
-        print('Before: [%d, %d]: %s -> %s'%(row, col, self.parent.parent().subtitleData.rawdata[row][col], item.text()))
+        # print('Before: [%d, %d]: %s -> %s'%(row, col, self.parent.parent().subtitleData.rawdata[row][col], item.text()))
         if col == 2 and item.text().strip() != '' and item.text() != self.parent.parent().subtitleData.rawdata[row][col]:
             self.parent.parent().subtitleData.rawdata[row][col] = item.text()
-        print('After: [%d, %d]: %s'%(row, col, self.parent.parent().subtitleData.rawdata[row][col]))
+        # print('After: [%d, %d]: %s'%(row, col, self.parent.parent().subtitleData.rawdata[row][col]))
         # self.parent.parent().subtitleData.updateDisplayTable()
 
 class SubDataTableWidget(QTableWidget):
@@ -637,7 +657,7 @@ class SubDataTableWidget(QTableWidget):
         self.parent = parent
         self.subtitleData = SRTData(self, parent)
         self.selectedItem = None
-        self.setHorizontalHeaderLabels(['Count', 'Start', 'Stop', 'Text'])
+        self.setHorizontalHeaderLabels(['Start', 'Stop', 'Text'])
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.horizontalHeader().setStretchLastSection(True)
@@ -648,18 +668,22 @@ class SubDataTableWidget(QTableWidget):
         self.delegate = Delegate(self)
         self.setItemDelegate(self.delegate)
 
+    def setSubtitleData(self, subtitleData: SRTData):
+        self.subtitleData = subtitleData
+
     def keyPressEvent(self, event):
         key = event.key()
-
+        if self.subtitleData is None:
+            return
         if key == Qt.Key_Return or key == Qt.Key_Enter and self.selectedItem is not None:
             # seek to point
             row = self.selectedItem.row()
             col = self.selectedItem.column()
             if col == 2:
-                print(row, col)
+                # print(row, col)
                 self.subtitleData.rawdata[row][col] = self.item(row, col).text()
             self.parent.player.setPosition(self.subtitleData.getItem(row)[0])
-            print(self.subtitleData.rawdata)
+            # print(self.subtitleData.rawdata)
         elif key == Qt.Key_Delete and self.selectedItem is not None:
             # delete data
             row = self.selectedItem.row()
@@ -670,6 +694,8 @@ class SubDataTableWidget(QTableWidget):
         self.subtitleData.updateDisplayTable()
 
     def subTableSelectAction(self, item):
+        if self.subtitleData is None:
+            return
         self.selectedItem = item
         row = item.row()
         col = item.column()
@@ -678,6 +704,8 @@ class SubDataTableWidget(QTableWidget):
         print('subTableSelectAction():', row, col, self.subtitleData.rawdata[row][2]) 
 
     def addData(self, start: int, stop: int, text: str):
+        if self.subtitleData is None:
+            return
         self.subtitleData.addItem(start, stop, text)
 
 class Player(QWidget):
@@ -696,6 +724,9 @@ class Player(QWidget):
 
         self.subStartPos = -1
         self.subEndPos = -1
+
+        self.loadSubProgress = None
+        self.loadSubProgressBar = None
 
         self.player = QMediaPlayer()
         self.playlist = QMediaPlaylist()
@@ -719,15 +750,15 @@ class Player(QWidget):
         self.labelDuration = QLabel()
         self.slider.sliderMoved.connect(self.seek)
 
-        self.labelHistogram = QLabel()
-        self.labelHistogram.setText("Histogram:")
-        self.histogram = HistogramWidget()
-        histogramLayout = QHBoxLayout()
-        histogramLayout.addWidget(self.labelHistogram)
-        histogramLayout.addWidget(self.histogram, 1)
+        # self.labelHistogram = QLabel()
+        # self.labelHistogram.setText("Histogram:")
+        # self.histogram = HistogramWidget()
+        # histogramLayout = QHBoxLayout()
+        # histogramLayout.addWidget(self.labelHistogram)
+        # histogramLayout.addWidget(self.histogram, 1)
 
         self.probe = QVideoProbe()
-        self.probe.videoFrameProbed.connect(self.histogram.processFrame)
+        # self.probe.videoFrameProbed.connect(self.histogram.processFrame)
         self.probe.setSource(self.player)
 
         openButton = QPushButton("Open", clicked=self.open)
@@ -805,12 +836,16 @@ class Player(QWidget):
 
         self.subInputBox = QPlainTextEdit()
         self.subInputBox.setEnabled(True)
+        self.subInputBox.setWordWrapMode(QTextOption.WordWrap)
         self.subInputBox.setMaximumHeight(50)
 
         self.subtitleDisplayTable = SubDataTableWidget(self) #QTableWidget(1, 4)
         self.subtitleDisplayTable.setMinimumWidth(320)
         self.subtitleDisplayTable.setMinimumHeight(180)
         self.subtitleDisplayTable.setEnabled(True)
+
+        self.subtitleDisplayTable.subtitleData.progress.connect(self.updateLoadSrtProgressBar)
+        self.subtitleDisplayTable.subtitleData.complete.connect(self.closeProgressBar)
 
         self.srtFileName = ''
 
@@ -834,14 +869,61 @@ class Player(QWidget):
         self.moveBackwardTimeInput.textChanged.connect(self.getMoveTimeMS)
 
         subInputLayout = QHBoxLayout()
-        subInputLayout.addWidget(getSubStartPos)
-        subInputLayout.addStretch(1)
-        subInputLayout.addWidget(getSubEndPos)
-        subInputLayout.addStretch(1)
-        endTimeDeltaMsLabel = QLabel()
-        endTimeDeltaMsLabel.setText('Default Length (ms):')
-        subInputLayout.addWidget(endTimeDeltaMsLabel)
-        subInputLayout.addWidget(self.getEndTimeDeltaMs)
+        subInputLayout_L = QVBoxLayout()
+        
+        subInputLayout_LH = QHBoxLayout()
+        self.subStartPosText = QLabel('--:--:--,---')
+        self.subStartPosText.setFixedWidth(80)
+        self.subStartPosClear = QPushButton('Clear', clicked = self.clearSubStart)
+        self.subStartPosClear.setEnabled(False)
+        subInputLayout_LH.addWidget(getSubStartPos)
+        subInputLayout_LH.addStretch(1)
+        subInputLayout_LH.addWidget(self.subStartPosText)
+        subInputLayout_LH.addStretch(1)
+        subInputLayout_LH.addWidget(self.subStartPosClear)
+        subInputLayout_L.addLayout(subInputLayout_LH)
+
+        subInputLayout_LH = QHBoxLayout()
+        self.subEndPosText = QLabel('--:--:--,---')
+        self.subEndPosText.setFixedWidth(80)
+        self.subEndPosClear = QPushButton('Clear', clicked = self.clearSubEnd)
+        self.subEndPosClear.setEnabled(False)
+        subInputLayout_LH.addWidget(getSubEndPos)
+        subInputLayout_LH.addStretch(1)
+        subInputLayout_LH.addWidget(self.subEndPosText)
+        subInputLayout_LH.addStretch(1)
+        subInputLayout_LH.addWidget(self.subEndPosClear)
+        subInputLayout_L.addLayout(subInputLayout_LH)
+
+        # subInputLayout_LH = QHBoxLayout()
+        # endTimeDeltaMsLabel = QLabel()
+        # endTimeDeltaMsLabel.setText('Default Length (ms):')
+        # subInputLayout_LH.addWidget(endTimeDeltaMsLabel)
+        # subInputLayout_LH.addWidget(self.getEndTimeDeltaMs)
+        # subInputLayout_L.addLayout(subInputLayout_LH)
+        subInputLayout_LH = QHBoxLayout()
+        addSubToArray = QPushButton('Add Subtitle', clicked = self.addCurrentSub)
+        subInputLayout_LH.addWidget(addSubToArray)
+        subInputLayout_L.addLayout(subInputLayout_LH)
+
+        subInputLayout_LH = QHBoxLayout()
+        loadSubToSys = QPushButton('Load SRT', clicked = self.loadSRT)
+        loadSubToSys.setEnabled(True)
+        subInputLayout_LH.addWidget(loadSubToSys)
+        subInputLayout_LH.addStretch(1)
+        storeSubToSys = QPushButton('Save SRT', clicked = self.storeSRT)
+        storeSubToSys.setEnabled(True)
+        subInputLayout_LH.addWidget(storeSubToSys)
+        subInputLayout_L.addLayout(subInputLayout_LH)
+
+        subInputLayout.addLayout(subInputLayout_L, stretch = 1)
+
+        subInputLayout_R = QVBoxLayout()
+
+        subInputLayout_R.addWidget(subInputBoxLabel)
+        subInputLayout_R.addWidget(self.subInputBox)
+
+        subInputLayout.addLayout(subInputLayout_R, stretch = 2)
 
         hSepLine = QFrame()
         hSepLine.setFrameShape(QFrame.HLine)
@@ -854,7 +936,7 @@ class Player(QWidget):
         hLayout.addWidget(self.labelDuration)
         layout.addLayout(hLayout)
         layout.addLayout(controlLayout)
-        layout.addLayout(histogramLayout)
+        # layout.addLayout(histogramLayout)
 
         layout.addWidget(hSepLine)
         layout.addWidget(QLabel('Stepping Tools'))
@@ -880,8 +962,8 @@ class Player(QWidget):
 
         layout.addLayout(subInputLayout)
 
-        layout.addWidget(subInputBoxLabel)
-        layout.addWidget(self.subInputBox)
+        # layout.addWidget(subInputBoxLabel)
+        # layout.addWidget(self.subInputBox)
 
         # layout.addWidget(self.subtitleDisplayTable)
 
@@ -916,12 +998,18 @@ class Player(QWidget):
         if fileInfo.exists():
             ifile = open(fileInfo.absoluteFilePath(), 'r')
             self.subtitleDisplayTable.subtitleData.loadSRT(ifile)
-            ifile.close()
+            self.showProgressBar()
+            # time.sleep(1)
+            self.subtitleDisplayTable.subtitleData.start()
 
     def storeSRT(self):
         srtName, _ = QFileDialog.getSaveFileName(self, "Save SRT", filter = 'SubRip (*.srt)')
         fileInfo = QFileInfo(srtName)
-        ofile = open(fileInfo.absoluteFilePath(), 'w')
+        try:
+            ofile = open(fileInfo.absoluteFilePath(), 'w')
+        except Exception as e:
+            self.showErrorMessage('storeSRT(): %s'%(str(e)))
+            return
         self.subtitleDisplayTable.subtitleData.storeSRT(ofile)
         ofile.close()
         return
@@ -929,15 +1017,38 @@ class Player(QWidget):
     def markSubStart(self):
         self.player.pause()
         self.subStartPos = self.player.position()
+        self.subStartPosText.setText(SRTData.tstampToStr(self.subStartPos))
+        self.subStartPosClear.setEnabled(True)
+
+    def clearSubStart(self):
+        self.subStartPos = -1
+        self.subStartPosText.setText(SRTData.tstampToStr(self.subStartPos))
+        self.subStartPosClear.setEnabled(False)
+
 
     def markSubEnd(self):
         self.player.pause()
-        self.subEndPos = self.player.position() + self.endTimeDeltaMs
+        self.subEndPos = self.player.position()
+        self.subEndPosText.setText(SRTData.tstampToStr(self.subEndPos))
+        self.subEndPosClear.setEnabled(True)
+
+    def clearSubEnd(self):
+        self.subEndPos = -1
+        self.subEndPosText.setText(SRTData.tstampToStr(self.subEndPos))
+        self.subEndPosClear.setEnabled(False)
     
     def addCurrentSub(self):
-        # check subEndPos < subStartPos
-        # check text not empty
-
+        if self.subStartPos >= 0 and self.subEndPos > self.subStartPos:
+            # get subtitle data
+            subStr = self.subInputBox.toPlainText()
+            subStr = subStr.strip()
+            if len(subStr) > 0:
+                self.subtitleDisplayTable.addData(self.subStartPos, self.subEndPos, subStr)
+                self.subInputBox.setPlainText('')
+                self.subStartPos = -1
+                self.subEndPos = -1
+                self.subStartPosText.setText(SRTData.tstampToStr(self.subStartPos))
+                self.subEndPosText.setText(SRTData.tstampToStr(self.subEndPos))
         return
 
     def addToPlaylist(self, name):
@@ -961,7 +1072,7 @@ class Player(QWidget):
 
     def positionChanged(self, progress):
         progress /= 1000
-        print('Position Changed:', progress)
+        # print('Position Changed:', progress)
         if not self.slider.isSliderDown():
             self.slider.setValue(progress)
 
@@ -1098,10 +1209,10 @@ class Player(QWidget):
     def updateDurationInfo(self, currentInfo):
         duration = self.duration
         if currentInfo or duration:
-            currentTime = QTime((currentInfo/3600)%60, (currentInfo/60)%60,
-                    currentInfo%60, (currentInfo*1000)%1000)
-            totalTime = QTime((duration/3600)%60, (duration/60)%60,
-                    duration%60, (duration*1000)%1000)
+            currentTime = QTime((int(currentInfo)//3600)%60, (int(currentInfo)//60)%60,
+                    int(currentInfo)%60, int(currentInfo*1000)%1000)
+            totalTime = QTime((int(duration)//3600)%60, (int(duration)//60)%60,
+                    int(duration)%60, int(duration*1000)%1000)
 
             format = 'hh:mm:ss' if duration > 3600 else 'mm:ss'
             tStr = currentTime.toString(format) + " / " + totalTime.toString(format)
@@ -1116,6 +1227,7 @@ class Player(QWidget):
     def showErrorMessage(self, errorMessageText: str):
         if self.errorMessageDialog is None:
             self.errorMessageDialog = QDialog(self)
+            self.errorMessageDialog.setModal(True)
             self.errorMessageTextWidget = QLabel('Error: ' + errorMessageText)
             layout = QVBoxLayout()
             button = QPushButton("Close")
@@ -1130,6 +1242,35 @@ class Player(QWidget):
 
         self.errorMessageTextWidget.setText('Error: ' + errorMessageText)
         self.errorMessageDialog.show()
+
+    def showProgressBar(self):
+        if self.loadSubProgress is None:
+            self.loadSubProgress = QDialog(self)
+            self.loadSubProgress.setModal(True)
+            self.loadSubProgress.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowTitleHint)
+            self.loadSubProgressBar = QProgressBar()
+            self.loadSubProgressBar.setFixedWidth(250)
+            self.loadSubProgressBar.setFixedHeight(20)
+            self.loadSubProgressBar.setTextVisible(True)
+            self.loadSubProgressBar.setAlignment(Qt.AlignCenter)
+            self.loadSubProgressBar.setFormat('Loading SRT (%v %)')
+            layout = QVBoxLayout()
+            layout.addWidget(self.loadSubProgressBar, alignment = Qt.AlignCenter)
+            self.loadSubProgress.setLayout(layout)
+            self.loadSubProgress.setWindowTitle('Loading SRT...')
+            self.loadSubProgress.setMinimumWidth(300)
+            self.loadSubProgress.setMinimumHeight(100)
+
+        self.loadSubProgress.show()
+
+    
+    def closeProgressBar(self):
+        if self.loadSubProgress is not None:
+            self.loadSubProgress.hide()
+
+    def updateLoadSrtProgressBar(self, progress: int):
+        if self.loadSubProgressBar is not None:
+            self.loadSubProgressBar.setValue(progress)
 
     def showColorDialog(self):
         if self.colorDialog is None:
