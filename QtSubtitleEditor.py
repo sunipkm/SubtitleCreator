@@ -41,8 +41,6 @@
 ##
 #############################################################################
 
-from threading import Thread
-import time
 from PyQt5.Qt import QTextOption
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Q_ARG, QAbstractItemModel,
         QFileInfo, qFuzzyCompare, QMetaObject, QModelIndex, QObject, Qt,
@@ -54,10 +52,9 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
         QFormLayout, QHBoxLayout, QLabel, QListView, QMessageBox, QPushButton,
         QSizePolicy, QSlider, QStyle, QToolButton, QVBoxLayout, QWidget, QLineEdit, QPlainTextEdit,
-        QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QLayout, QProgressBar)
+        QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QProgressBar)
 from io import TextIOWrapper
 import re
-from itertools import chain
 from inspect import currentframe
 
 def get_linenumber():
@@ -283,103 +280,6 @@ class PlayerControls(QWidget):
 
     def updateRate(self):
         self.changeRate.emit(self.playbackRate())
-
-# class FrameProcessor(QObject):
-
-#     histogramReady = pyqtSignal(list)
-
-#     @pyqtSlot(QVideoFrame, int)
-#     def processFrame(self, frame, levels):
-#         histogram = [0.0] * levels
-
-#         if levels and frame.map(QAbstractVideoBuffer.ReadOnly):
-#             pixelFormat = frame.pixelFormat()
-
-#             if pixelFormat == QVideoFrame.Format_YUV420P or pixelFormat == QVideoFrame.Format_NV12:
-#                 # Process YUV data.
-#                 bits = frame.bits()
-#                 for idx in range(frame.height() * frame.width()):
-#                     histogram[(bits[idx] * levels) >> 8] += 1.0
-#             else:
-#                 imageFormat = QVideoFrame.imageFormatFromPixelFormat(pixelFormat)
-#                 if imageFormat != QImage.Format_Invalid:
-#                     # Process RGB data.
-#                     image = QImage(frame.bits(), frame.width(), frame.height(), imageFormat)
-
-#                     for y in range(image.height()):
-#                         for x in range(image.width()):
-#                             pixel = image.pixel(x, y)
-#                             histogram[(qGray(pixel) * levels) >> 8] += 1.0
-
-#             # Find the maximum value.
-#             maxValue = 0.0
-#             for value in histogram:
-#                 if value > maxValue:
-#                     maxValue = value
-
-#             # Normalise the values between 0 and 1.
-#             if maxValue > 0.0:
-#                 for i in range(len(histogram)):
-#                     histogram[i] /= maxValue
-
-#             frame.unmap()
-
-#         self.histogramReady.emit(histogram)
-
-# class HistogramWidget(QWidget):
-
-#     def __init__(self, parent=None):
-#         super(HistogramWidget, self).__init__(parent)
-
-#         self.m_levels = 128
-#         self.m_isBusy = False
-#         self.m_histogram = []
-#         self.m_processor = FrameProcessor()
-#         self.m_processorThread = QThread()
-
-#         self.m_processor.moveToThread(self.m_processorThread)
-#         self.m_processor.histogramReady.connect(self.setHistogram)
-
-#     def __del__(self):
-#         self.m_processorThread.quit()
-#         self.m_processorThread.wait(10000)
-
-#     def setLevels(self, levels):
-#         self.m_levels = levels
-
-#     def processFrame(self, frame):
-#         if self.m_isBusy:
-#             return
-
-#         self.m_isBusy = True
-#         QMetaObject.invokeMethod(self.m_processor, 'processFrame',
-#                 Qt.QueuedConnection, Q_ARG(QVideoFrame, frame),
-#                 Q_ARG(int, self.m_levels))
-
-#     @pyqtSlot(list)
-#     def setHistogram(self, histogram):
-#         self.m_isBusy = False
-#         self.m_histogram = list(histogram)
-#         self.update()
-
-#     def paintEvent(self, event):
-#         painter = QPainter(self)
-
-#         if len(self.m_histogram) == 0:
-#             painter.fillRect(0, 0, self.width(), self.height(),
-#                     QColor.fromRgb(0, 0, 0))
-#             return
-
-#         barWidth = self.width() / float(len(self.m_histogram))
-
-#         for i, value in enumerate(self.m_histogram):
-#             h = value * self.height()
-#             # Draw the level.
-#             painter.fillRect(barWidth * i, self.height() - h,
-#                     barWidth * (i + 1), self.height(), Qt.red)
-#             # Clear the rest of the control.
-#             painter.fillRect(barWidth * i, 0, barWidth * (i + 1),
-#                     self.height() - h, Qt.black)
 
 class DoubleSlider(QSlider):
 
@@ -702,6 +602,7 @@ class SubDataTableWidget(QTableWidget):
         self.parent.player.pause()
         self.parent.player.setPosition(self.subtitleData.getItem(row)[0])
         print('subTableSelectAction():', row, col, self.subtitleData.rawdata[row][2]) 
+        self.subtitleData.updateDisplayTable()
 
     def addData(self, start: int, stop: int, text: str):
         if self.subtitleData is None:
