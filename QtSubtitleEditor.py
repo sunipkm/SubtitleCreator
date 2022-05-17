@@ -1040,7 +1040,6 @@ class Player(QWidget):
 
     def updateTablePos(self, progress):
         idx = (np.where((self.subtitleDisplayTable.subtitleData.tstampdata[0] < progress) & (self.subtitleDisplayTable.subtitleData.tstampdata[1] > progress))[0]).tolist()
-        print(idx)
         if len(self.lastHighlightIndex) != 0: # something was being displayed
             for old_idx in self.lastHighlightIndex:
                 if old_idx in idx:
@@ -1063,6 +1062,7 @@ class Player(QWidget):
                 self.subtitleDisplayTable.item(id, 0).setBackground(QColor(0xfc9803))
                 self.subtitleDisplayTable.item(id, 1).setBackground(QColor(0xfc9803))
                 self.subtitleDisplayTable.item(id, 2).setBackground(QColor(0xfc9803))
+                self.subtitleDisplayTable.scrollToItem(self.subtitleDisplayTable.item(id, 0))
                 pass #todo: enable highlight
         
         self.lastHighlightIndex = idx
