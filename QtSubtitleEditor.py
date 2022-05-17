@@ -642,6 +642,7 @@ class NumpadHelper(QObject):
     def __init__(self, parent=None):
         super(NumpadHelper, self).__init__(parent)
         self.m_widgets = []
+        self.keyboardInputInvalid = False
 
     def appendWidget(self, widget):
         self.m_widgets.append(widget)
@@ -650,6 +651,40 @@ class NumpadHelper(QObject):
     def eventFilter(self, obj, event):
         if obj in self.m_widgets and event.type() == QEvent.KeyPress:
             numpad_mod = int(event.modifiers()) & (Qt.KeypadModifier)
+            if event.key() == Qt.Key_Tab and (int(event.modifiers() & (Qt.ControlModifier))):
+                self.keyboardInputInvalid = ~self.keyboardInputInvalid
+                if self.keyboardInputInvalid:
+                    self.m_widgets[0].keyInputModifier.setText('QWERTY Control Enabled')
+                    self.m_widgets[0].keyInputModifier.setStyleSheet("color: red; border: 0px solid red;")
+                else:
+                    self.m_widgets[0].keyInputModifier.setText('QWERTY Control Disabled')
+                    self.m_widgets[0].keyInputModifier.setStyleSheet("color: black; border: 0px solid black;")
+                return True
+
+            if event.key() == Qt.Key_D and self.keyboardInputInvalid:
+                if self.m_widgets[0].player.state() == QMediaPlayer.PlayingState:
+                    self.m_widgets[0].player.pause()
+                elif self.m_widgets[0].player.state() == QMediaPlayer.PausedState or self.m_widgets[0].player.state() == QMediaPlayer.StoppedState:
+                    self.m_widgets[0].player.play()
+                return True
+            elif event.key() == Qt.Key_A and self.keyboardInputInvalid:
+                self.m_widgets[0].seekBackwardMS()
+                return True
+            elif event.key() == Qt.Key_F and self.keyboardInputInvalid:
+                self.m_widgets[0].seekForwardMS()
+                return True
+            elif event.key() == Qt.Key_S and self.keyboardInputInvalid:
+                self.m_widgets[0].markSubStart()
+                return True
+            elif event.key() == Qt.Key_E and self.keyboardInputInvalid:
+                self.m_widgets[0].markSubEnd()
+                return True
+            elif event.key() == Qt.Key_O and self.keyboardInputInvalid:
+                self.m_widgets[0].addCurrentSub()
+                return True
+            elif event.key() and self.keyboardInputInvalid:
+                return True
+            
             if event.key() == Qt.Key_5 and numpad_mod:
                 # play-pause
                 if self.m_widgets[0].player.state() == QMediaPlayer.PlayingState:
@@ -946,8 +981,13 @@ class Player(QWidget):
         hSepLine1.setFrameShadow(QFrame.Sunken)
 
         layout.addWidget(hSepLine1)
-        layout.addWidget(QLabel('Subtitle Tools'))
-
+        hLayout = QHBoxLayout()
+        hLayout.addWidget(QLabel('Subtitle Tools'))
+        hLayout.addStretch(1)
+        hLayout.addWidget(QLabel('Ctrl + Tab to toggle:'))
+        self.keyInputModifier = QLabel('QWERTY Control Disabled')
+        hLayout.addWidget(self.keyInputModifier)
+        layout.addLayout(hLayout)
         layout.addLayout(subInputLayout)
 
         # layout.addWidget(subInputBoxLabel)
