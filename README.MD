@@ -10,4 +10,4 @@ Numpad (with NumLock enabled) is rewired to provide easy controls: <br>
   9: Mark current position as end <br>
   2: Add subtitle text at currently marked start and end positions to the queue <br>
 
-### Note: Requires K-Light Codec Pack to be installed to play videos in the application.
+### Note: Requires K-Light Codec Pack to be installed to play videos in the application. Currently tested in Windows only (with latest Anaconda3)
