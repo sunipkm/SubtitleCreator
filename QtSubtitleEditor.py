@@ -56,6 +56,7 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
 from io import TextIOWrapper
 import re
 from inspect import currentframe
+import numpy as np
 
 def get_linenumber():
     cf = currentframe()
@@ -300,13 +301,13 @@ class DoubleSlider(QSlider):
         return float(super(DoubleSlider, self).value()) / self._multi
 
     def setMinimum(self, value):
-        return super(DoubleSlider, self).setMinimum(value * self._multi)
+        return super(DoubleSlider, self).setMinimum(int(value * self._multi))
 
     def setMaximum(self, value):
-        return super(DoubleSlider, self).setMaximum(value * self._multi)
+        return super(DoubleSlider, self).setMaximum(int(value * self._multi))
 
     def setSingleStep(self, value):
-        return super(DoubleSlider, self).setSingleStep(value * self._multi)
+        return super(DoubleSlider, self).setSingleStep(int(value * self._multi))
 
     def singleStep(self):
         return float(super(DoubleSlider, self).singleStep()) / self._multi
@@ -335,6 +336,7 @@ class SRTData(QThread):
         self.total_lines = -1
         self.current_lines = 0
         self.stream = None
+        self.tstampdata = None
         if table.columnCount() != 3:
             table.setColumnCount(3)
         self.updateDisplayTable()
@@ -421,6 +423,9 @@ class SRTData(QThread):
         self.rawdata.append([start, stop, text])
         self.rawdata.sort(key = self.getSortKey)
         self.updateDisplayTable(True)
+        startdata = [d[0] for d in self.rawdata]
+        enddata = [d[1] for d in self.rawdata]
+        self.tstampdata = np.asarray([startdata, enddata])
         return
     
     def getItem(self, index: int) -> list:
@@ -682,6 +687,7 @@ class Player(QWidget):
 
         self.player.durationChanged.connect(self.durationChanged)
         self.player.positionChanged.connect(self.positionChanged)
+        self.player.positionChanged.connect(self.updateTablePos)
         self.player.metaDataChanged.connect(self.metaDataChanged)
         self.player.mediaStatusChanged.connect(self.statusChanged)
         self.player.bufferStatusChanged.connect(self.bufferingProgress)
@@ -794,6 +800,9 @@ class Player(QWidget):
         self.subtitleDisplayTable.setMinimumWidth(320)
         self.subtitleDisplayTable.setMinimumHeight(180)
         self.subtitleDisplayTable.setEnabled(True)
+
+        self.lastHighlightIndex = []
+        self.lastBackgroundColor = {}
 
         self.subtitleDisplayTable.subtitleData.progress.connect(self.updateLoadSrtProgressBar)
         self.subtitleDisplayTable.subtitleData.complete.connect(self.closeProgressBar)
@@ -1028,6 +1037,36 @@ class Player(QWidget):
             self.slider.setValue(progress)
 
         self.updateDurationInfo(progress)
+
+    def updateTablePos(self, progress):
+        idx = (np.where((self.subtitleDisplayTable.subtitleData.tstampdata[0] < progress) & (self.subtitleDisplayTable.subtitleData.tstampdata[1] > progress))[0]).tolist()
+        print(idx)
+        if len(self.lastHighlightIndex) != 0: # something was being displayed
+            for old_idx in self.lastHighlightIndex:
+                if old_idx in idx:
+                    pass
+                else: # disable this one
+                    old_color = self.lastBackgroundColor[old_idx]
+                    if (old_color.name() == '#000000'):
+                        old_color = QColor('white')
+                    self.subtitleDisplayTable.item(old_idx, 0).setBackground(old_color)
+                    self.subtitleDisplayTable.item(old_idx, 1).setBackground(old_color)
+                    self.subtitleDisplayTable.item(old_idx, 2).setBackground(old_color)
+                    del self.lastBackgroundColor[old_idx]
+                    pass #todo: disable highlight
+        
+        for id in idx:
+            if id in self.lastHighlightIndex: # already highlighted
+                pass
+            else:
+                self.lastBackgroundColor[id] = self.subtitleDisplayTable.item(id, 0).background().color()
+                self.subtitleDisplayTable.item(id, 0).setBackground(QColor(0xfc9803))
+                self.subtitleDisplayTable.item(id, 1).setBackground(QColor(0xfc9803))
+                self.subtitleDisplayTable.item(id, 2).setBackground(QColor(0xfc9803))
+                pass #todo: enable highlight
+        
+        self.lastHighlightIndex = idx
+
 
     def metaDataChanged(self):
         if self.player.isMetaDataAvailable():
