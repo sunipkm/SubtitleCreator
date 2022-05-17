@@ -44,8 +44,8 @@
 from PyQt5.Qt import QTextOption
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Q_ARG, QAbstractItemModel,
         QFileInfo, qFuzzyCompare, QMetaObject, QModelIndex, QObject, Qt,
-        QThread, QTime, QUrl, QSize)
-from PyQt5.QtGui import QColor, qGray, QImage, QPainter, QPalette, QIcon
+        QThread, QTime, QUrl, QSize, QEvent, QCoreApplication)
+from PyQt5.QtGui import QColor, qGray, QImage, QPainter, QPalette, QIcon, QKeyEvent
 from PyQt5.QtMultimedia import (QAbstractVideoBuffer, QMediaContent,
         QMediaMetaData, QMediaPlayer, QMediaPlaylist, QVideoFrame, QVideoProbe)
 from PyQt5.QtMultimediaWidgets import QVideoWidget
@@ -612,6 +612,48 @@ class SubDataTableWidget(QTableWidget):
             return
         self.subtitleData.addItem(start, stop, text)
 
+class NumpadHelper(QObject):
+    def __init__(self, parent=None):
+        super(NumpadHelper, self).__init__(parent)
+        self.m_widgets = []
+
+    def appendWidget(self, widget):
+        self.m_widgets.append(widget)
+        widget.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if obj in self.m_widgets and event.type() == QEvent.KeyPress:
+            numpad_mod = int(event.modifiers()) & (Qt.KeypadModifier)
+            if event.key() == Qt.Key_5 and numpad_mod:
+                # play-pause
+                if self.m_widgets[0].player.state() == QMediaPlayer.PlayingState:
+                    self.m_widgets[0].player.pause()
+                elif self.m_widgets[0].player.state() == QMediaPlayer.PausedState or self.m_widgets[0].player.state() == QMediaPlayer.StoppedState:
+                    self.m_widgets[0].player.play()
+                return True
+            elif event.key() == Qt.Key_4 and numpad_mod:
+                self.m_widgets[0].seekBackwardMS()
+                return True
+            elif event.key() == Qt.Key_6 and numpad_mod:
+                self.m_widgets[0].seekForwardMS()
+                return True
+            elif event.key() == Qt.Key_7 and numpad_mod:
+                self.m_widgets[0].markSubStart()
+                return True
+            elif event.key() == Qt.Key_9 and numpad_mod:
+                self.m_widgets[0].markSubEnd()
+                return True
+            elif event.key() == Qt.Key_2 and numpad_mod:
+                self.m_widgets[0].addCurrentSub()
+                return True
+            elif event.key() == Qt.Key_1 and numpad_mod:
+                return True
+            elif event.key() == Qt.Key_3 and numpad_mod:
+                return True
+            elif event.key() == Qt.Key_8 and numpad_mod:
+                return True
+        return super(NumpadHelper, self).eventFilter(obj, event)
+
 class Player(QWidget):
 
     fullScreenChanged = pyqtSignal(bool)
@@ -625,6 +667,8 @@ class Player(QWidget):
         self.trackInfo = ""
         self.statusInfo = ""
         self.duration = 0
+        numpadHelper = NumpadHelper(self)
+        numpadHelper.appendWidget(self)
 
         self.subStartPos = -1
         self.subEndPos = -1
@@ -713,6 +757,7 @@ class Player(QWidget):
         moveForwardTimeInputText.setText('Forward (ms): ')
 
         self.moveForwardTimeInput = QLineEdit(str(self.forwardTimeMs))
+        numpadHelper.appendWidget(self.moveForwardTimeInput)
         self.moveForwardTimeInput.setEnabled(True)
         self.moveForwardTimeInput.setFixedWidth(50)
         self.moveForwardTimeInput.textChanged.connect(self.getMoveTimeMS)
@@ -721,6 +766,7 @@ class Player(QWidget):
         moveBackwardTimeInputText.setText('Backward (ms): ')
         
         self.moveBackwardTimeInput = QLineEdit(str(self.backwardTimeMs))
+        numpadHelper.appendWidget(self.moveBackwardTimeInput)
         self.moveBackwardTimeInput.setFixedWidth(50)
         self.moveBackwardTimeInput.setEnabled(True)
         self.moveBackwardTimeInput.textChanged.connect(self.getMoveTimeMS)
@@ -739,6 +785,7 @@ class Player(QWidget):
         subInputBoxLabel.setText('Subtitle Text:')
 
         self.subInputBox = QPlainTextEdit()
+        numpadHelper.appendWidget(self.subInputBox)
         self.subInputBox.setEnabled(True)
         self.subInputBox.setWordWrapMode(QTextOption.WordWrap)
         self.subInputBox.setMaximumHeight(50)
