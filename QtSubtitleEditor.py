@@ -956,7 +956,7 @@ class Player(QWidget):
         srtName, _ = QFileDialog.getOpenFileName(self, "Load SRT", filter = 'SubRip (*.srt)')
         fileInfo = QFileInfo(srtName)
         if fileInfo.exists():
-            ifile = open(fileInfo.absoluteFilePath(), 'r')
+            ifile = open(fileInfo.absoluteFilePath(), 'r', encoding = 'utf-8')
             self.subtitleDisplayTable.subtitleData.loadSRT(ifile)
             self.showProgressBar()
             # time.sleep(1)
@@ -966,7 +966,7 @@ class Player(QWidget):
         srtName, _ = QFileDialog.getSaveFileName(self, "Save SRT", filter = 'SubRip (*.srt)')
         fileInfo = QFileInfo(srtName)
         try:
-            ofile = open(fileInfo.absoluteFilePath(), 'w')
+            ofile = open(fileInfo.absoluteFilePath(), 'w', encoding = 'utf-8')
         except Exception as e:
             self.showErrorMessage('storeSRT(): %s'%(str(e)))
             return
