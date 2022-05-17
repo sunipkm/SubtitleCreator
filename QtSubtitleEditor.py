@@ -588,7 +588,10 @@ class SubDataTableWidget(QTableWidget):
             # delete data
             row = self.selectedItem.row()
             print('Delete:', row)
-            del self.subtitleData.rawdata[row]
+            try:
+                del self.subtitleData.rawdata[row]
+            except Exception:
+                pass
         else:
             super(SubDataTableWidget, self).keyPressEvent(event)   
         self.subtitleData.updateDisplayTable()
