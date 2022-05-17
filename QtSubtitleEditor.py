@@ -682,6 +682,12 @@ class NumpadHelper(QObject):
             elif event.key() == Qt.Key_O and self.keyboardInputInvalid:
                 self.m_widgets[0].addCurrentSub()
                 return True
+            elif event.key() == Qt.Key_W and self.keyboardInputInvalid:
+                self.m_widgets[0].gotoMarkStart()
+                return True
+            elif event.key() == Qt.Key_Q and self.keyboardInputInvalid:
+                self.m_widgets[0].gotoNearestSubStart()
+                return True
             elif event.key() and self.keyboardInputInvalid:
                 return True
             
@@ -708,10 +714,12 @@ class NumpadHelper(QObject):
                 self.m_widgets[0].addCurrentSub()
                 return True
             elif event.key() == Qt.Key_1 and numpad_mod:
+                self.m_widgets[0].gotoNearestSubStart()
                 return True
             elif event.key() == Qt.Key_3 and numpad_mod:
                 return True
             elif event.key() == Qt.Key_8 and numpad_mod:
+                self.m_widgets[0].gotoMarkStart()
                 return True
         return super(NumpadHelper, self).eventFilter(obj, event)
 
@@ -1177,6 +1185,26 @@ class Player(QWidget):
 
     def seek(self, seconds):
         self.player.setPosition(seconds)
+    
+    def gotoMarkStart(self):
+        if self.subStartPos >= 0:
+            self.player.setPosition(self.subStartPos)
+            self.player.play()
+    
+    def gotoNearestSubStart(self):
+        progress = self.player.position()
+        if progress is None:
+            return
+        if self.subtitleDisplayTable.subtitleData.tstampdata is None:
+            return
+        delta = (progress - self.subtitleDisplayTable.subtitleData.tstampdata[0])
+        delta = delta[np.where(delta > 0)]
+        if len(delta) > 0:
+            val = delta.min()
+            if val < 10000: # 10 seconds
+                self.player.setPosition(progress - val)
+                self.player.play()
+        
 
     def getMoveTimeMS(self):
         try:

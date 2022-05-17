@@ -9,6 +9,8 @@ Numpad (with NumLock enabled) is rewired to provide easy controls: <br>
   7: Pause and mark current position as start <br>
   9: Pause and mark current position as end <br>
   2: Add subtitle text at currently marked start and end positions to the queue <br>
+  8: Move to position marked as start and start playing <br>
+  1: Move to nearest previous subtitle (within 10 s) and start playing <br>
 
 You can also use keys A, S, D, F, E, O to control the interface.
 The control surface is toggled by pressing Ctrl + Tab.
@@ -18,5 +20,7 @@ The control surface is toggled by pressing Ctrl + Tab.
   S: Pause and mark current position as start <br>
   E: Pause and mark current position as end <br>
   O: Add subtitle text at currently marked start and end positions to the queue <br>
+  W: Move to position marked as start and start playing <br>
+  Q: Move to nearest previous subtitle (within 10 s) and start playing <br>
 
 ### Note: Requires K-Light Codec Pack to be installed to play videos in the application. Currently tested in Windows only (with latest Anaconda3)
