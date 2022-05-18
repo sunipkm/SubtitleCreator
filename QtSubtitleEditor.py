@@ -331,14 +331,11 @@ class DoubleSlider(QSlider):
     def setValue(self, value):
         super(DoubleSlider, self).setValue(int(value * self._multi))
 
-
 class Player(QWidget):  # forward declaration
     pass
 
-
 class SubDataTableWidget(QTableWidget):
     pass
-
 
 class SRTData(QThread):
     """
@@ -442,6 +439,11 @@ class SRTData(QThread):
             return
         if self.rawdata == [[-1, -1, '']]:
             self.rawdata = []
+        if self.tstampdata is not None:
+            # check if timestamp already in
+            idx = np.where((self.tstampdata[0] == start) & (self.tstampdata[1] == stop))[0]
+            for i in idx:
+                del self.rawdata[i]
         self.rawdata.append([start, stop, text])
         self.rawdata.sort(key=self.getSortKey)
         self.updateDisplayTable(True)
@@ -567,90 +569,6 @@ class SRTData(QThread):
         output += '%s\n\n' % (data[2])
         return output
 
-
-class Delegate(QStyledItemDelegate):
-    def createEditor(self, parent, option, index):
-        self.index = index
-        self.parent = parent
-        if index.column() == 2:
-            return super(Delegate, self).createEditor(parent, option, index)
-        else:
-            return None
-
-    def setEditorData(self, item, index):
-        row = index.row()
-        col = index.column()
-        # print('Before: [%d, %d]: %s -> %s'%(row, col, self.parent.parent().subtitleData.rawdata[row][col], item.text()))
-        if col == 2 and item.text().strip() != '' and item.text() != self.parent.parent().subtitleData.rawdata[row][col]:
-            self.parent.parent().subtitleData.rawdata[row][col] = item.text()
-        # print('After: [%d, %d]: %s'%(row, col, self.parent.parent().subtitleData.rawdata[row][col]))
-        # self.parent.parent().subtitleData.updateDisplayTable()
-
-
-class SubDataTableWidget(QTableWidget):
-    def __init__(self, parent: Player, stream: TextIOWrapper = None):
-        super(SubDataTableWidget, self).__init__(parent)
-        self.parent = parent
-        self.subtitleData = SRTData(self, parent)
-        self.selectedItem = None
-        self.setHorizontalHeaderLabels(['Start', 'Stop', 'Text'])
-        self.resizeColumnsToContents()
-        self.resizeRowsToContents()
-        self.horizontalHeader().setStretchLastSection(True)
-        self.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.setSelectionBehavior(QAbstractItemView.SelectRows)
-        # self.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.clicked.connect(self.subTableSelectAction)
-        self.delegate = Delegate(self)
-        self.setItemDelegate(self.delegate)
-
-    def setSubtitleData(self, subtitleData: SRTData):
-        self.subtitleData = subtitleData
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        if self.subtitleData is None:
-            return
-        if key == Qt.Key_Return or key == Qt.Key_Enter and self.selectedItem is not None:
-            # seek to point
-            row = self.selectedItem.row()
-            col = self.selectedItem.column()
-            if col == 2:
-                # print(row, col)
-                self.subtitleData.rawdata[row][col] = self.item(
-                    row, col).text()
-            self.parent.player.setPosition(self.subtitleData.getItem(row)[0])
-            # print(self.subtitleData.rawdata)
-        elif key == Qt.Key_Delete and self.selectedItem is not None:
-            # delete data
-            row = self.selectedItem.row()
-            print('Delete:', row)
-            try:
-                del self.subtitleData.rawdata[row]
-            except Exception:
-                pass
-        else:
-            super(SubDataTableWidget, self).keyPressEvent(event)
-        self.subtitleData.updateDisplayTable()
-
-    def subTableSelectAction(self, item):
-        if self.subtitleData is None:
-            return
-        self.selectedItem = item
-        row = item.row()
-        col = item.column()
-        self.parent.player.pause()
-        self.parent.player.setPosition(self.subtitleData.getItem(row)[0])
-        print('subTableSelectAction():', row, col,
-              self.subtitleData.rawdata[row][2])
-        self.subtitleData.updateDisplayTable()
-
-    def addData(self, start: int, stop: int, text: str):
-        if self.subtitleData is None:
-            return
-        self.subtitleData.addItem(start, stop, text)
-
-
 class NumpadHelper(QObject):
     def __init__(self, parent=None):
         super(NumpadHelper, self).__init__(parent)
@@ -660,6 +578,9 @@ class NumpadHelper(QObject):
     def appendWidget(self, widget):
         self.m_widgets.append(widget)
         widget.installEventFilter(self)
+
+    def removeWidget(self, widget):
+        self.m_widgets.remove(widget)
 
     def eventFilter(self, obj, event):
         if obj in self.m_widgets and event.type() == QEvent.KeyPress:
@@ -736,6 +657,83 @@ class NumpadHelper(QObject):
                 return True
         return super(NumpadHelper, self).eventFilter(obj, event)
 
+class Delegate(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        self.index = index
+        self.parent = parent
+        if index.column() == 2:
+            # ed = super(Delegate, self).createEditor(parent, option, index)
+            start = self.parent.parent().subtitleData.rawdata[index.row()][0]
+            end = self.parent.parent().subtitleData.rawdata[index.row()][1]
+            text = self.parent.parent().subtitleData.rawdata[index.row()][2]
+            self.parent.parent().parent.selectSub(start, end, text)
+            return None
+        else:
+            return None
+
+class SubDataTableWidget(QTableWidget):
+    def __init__(self, parent: Player, stream: TextIOWrapper = None):
+        super(SubDataTableWidget, self).__init__(parent)
+        self.parent = parent
+        self.subtitleData = SRTData(self, parent)
+        self.selectedItem = None
+        self.numpadHelper = parent.numpadHelper
+        self.setHorizontalHeaderLabels(['Start', 'Stop', 'Text'])
+        self.resizeColumnsToContents()
+        self.resizeRowsToContents()
+        self.horizontalHeader().setStretchLastSection(True)
+        self.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        # self.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.clicked.connect(self.subTableSelectAction)
+        self.delegate = Delegate(self)
+        self.setItemDelegate(self.delegate)
+
+    def setSubtitleData(self, subtitleData: SRTData):
+        self.subtitleData = subtitleData
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if self.subtitleData is None:
+            return
+        if key == Qt.Key_Return or key == Qt.Key_Enter and self.selectedItem is not None:
+            # seek to point
+            row = self.selectedItem.row()
+            col = self.selectedItem.column()
+            if col == 2:
+                # print(row, col)
+                self.subtitleData.rawdata[row][col] = self.item(
+                    row, col).text()
+            self.parent.player.setPosition(self.subtitleData.getItem(row)[0])
+            # print(self.subtitleData.rawdata)
+        elif key == Qt.Key_Delete and self.selectedItem is not None:
+            # delete data
+            row = self.selectedItem.row()
+            print('Delete:', row)
+            try:
+                del self.subtitleData.rawdata[row]
+            except Exception:
+                pass
+        else:
+            super(SubDataTableWidget, self).keyPressEvent(event)
+        self.subtitleData.updateDisplayTable()
+
+    def subTableSelectAction(self, item):
+        if self.subtitleData is None:
+            return
+        self.selectedItem = item
+        row = item.row()
+        col = item.column()
+        self.parent.player.pause()
+        self.parent.player.setPosition(self.subtitleData.getItem(row)[0])
+        print('subTableSelectAction():', row, col,
+              self.subtitleData.rawdata[row][2])
+        self.subtitleData.updateDisplayTable()
+
+    def addData(self, start: int, stop: int, text: str):
+        if self.subtitleData is None:
+            return
+        self.subtitleData.addItem(start, stop, text)
 
 class Player(QWidget):
 
@@ -752,6 +750,8 @@ class Player(QWidget):
         self.duration = 0
         numpadHelper = NumpadHelper(self)
         numpadHelper.appendWidget(self)
+
+        self.numpadHelper = numpadHelper
 
         self.subStartPos = -1
         self.subEndPos = -1
@@ -1112,6 +1112,13 @@ class Player(QWidget):
         if not self.pauseOnMarkIfPlaying.isChecked() and state == QMediaPlayer.PlayingState:
             self.player.play()
 
+    def selectSub(self, start, end, text):
+        self.subStartPos = start
+        self.subStartPosText.setText(SRTData.tstampToStr(self.subStartPos))
+        self.subEndPos = end
+        self.subEndPosText.setText(SRTData.tstampToStr(self.subEndPos))
+        self.subInputBox.setPlainText(text)
+
     def clearSubEnd(self):
         self.subEndPos = -1
         self.subEndPosText.setText(SRTData.tstampToStr(self.subEndPos))
@@ -1128,8 +1135,7 @@ class Player(QWidget):
                 self.subInputBox.setPlainText('')
                 self.subStartPos = -1
                 self.subEndPos = -1
-                self.subStartPosText.setText(
-                    SRTData.tstampToStr(self.subStartPos))
+                self.subStartPosText.setText(SRTData.tstampToStr(self.subStartPos))
                 self.subEndPosText.setText(SRTData.tstampToStr(self.subEndPos))
         return
 
