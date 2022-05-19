@@ -45,7 +45,7 @@ from PyQt5.Qt import QTextOption
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Q_ARG, QAbstractItemModel,
                           QFileInfo, qFuzzyCompare, QMetaObject, QModelIndex, QObject, Qt,
                           QThread, QTime, QUrl, QSize, QEvent, QCoreApplication)
-from PyQt5.QtGui import QColor, qGray, QImage, QPainter, QPalette, QIcon, QKeyEvent
+from PyQt5.QtGui import QColor, qGray, QImage, QPainter, QPalette, QIcon, QKeyEvent, QMouseEvent
 from PyQt5.QtMultimedia import (QAbstractVideoBuffer, QMediaContent,
                                 QMediaMetaData, QMediaPlayer, QMediaPlaylist, QVideoFrame, QVideoProbe)
 from PyQt5.QtMultimediaWidgets import QVideoWidget
@@ -62,6 +62,19 @@ import numpy as np
 def get_linenumber():
     cf = currentframe()
     return cf.f_back.f_lineno
+
+class EQLabel(QLabel):
+    def __init__(self, parent):
+        super(EQLabel, self).__init__()
+        self.parent = parent
+
+    def __init__(self, text: str, parent):
+        super(EQLabel, self).__init__(text)
+        self.parent = parent
+
+    def mouseDoubleClickEvent(self, evt: QMouseEvent) -> None:
+        self.parent.gotoMarkStart()
+        evt.accept()
 
 
 class VideoWidget(QVideoWidget):
@@ -590,9 +603,11 @@ class NumpadHelper(QObject):
                 if self.keyboardInputInvalid:
                     self.m_widgets[0].keyInputModifier.setText('QWERTY Control Enabled')
                     self.m_widgets[0].keyInputModifier.setStyleSheet("color: red; border: 0px solid red;")
+                    self.m_widgets[0].setStyleSheet('background-color: #fff0f0')
                 else:
                     self.m_widgets[0].keyInputModifier.setText('QWERTY Control Disabled')
                     self.m_widgets[0].keyInputModifier.setStyleSheet("color: black; border: 0px solid black;")
+                    self.m_widgets[0].setStyleSheet('background-color: #f0f0f0')
                 return True
 
             if event.key() == Qt.Key_D and self.keyboardInputInvalid:
@@ -742,6 +757,8 @@ class Player(QWidget):
     def __init__(self, playlist, parent=None):
         super(Player, self).__init__(parent)
 
+        self.setStyleSheet('background-color: #f0f0f0')
+        self.setWindowFlags(self.windowFlags() & Qt.WindowContextHelpButtonHint)
         self.colorDialog = None
         self.errorMessageDialog = None
         self.errorMessageTextWidget = None
@@ -772,6 +789,7 @@ class Player(QWidget):
         self.player.error.connect(self.displayErrorMessage)
 
         self.videoWidget = VideoWidget()
+        self.videoWidget.setStyleSheet('background-color: #000000')
         self.player.setVideoOutput(self.videoWidget)
         self.videoWidget.setMinimumWidth(320)
         self.videoWidget.setMinimumHeight(180)
@@ -825,7 +843,7 @@ class Player(QWidget):
         self.embedSub.setFixedHeight(50)
         self.embedSub.setAutoFillBackground(False)
         self.embedSub.setAttribute(Qt.WA_TranslucentBackground)
-        self.embedSub.setStyleSheet("QLabel {background-color: rgba(0,0,0,0%), color : blue;}")
+        # self.embedSub.setStyleSheet("QLabel{background-color: yellow, color : blue;}")
 
         displaySplitter = QSplitter(Qt.Horizontal)
         displaySplitter.setChildrenCollapsible(False)
@@ -940,8 +958,8 @@ class Player(QWidget):
         subInputLayout_LH.addWidget(self.pauseOnMarkIfPlaying)
         subInputLayout_L.addLayout(subInputLayout_LH)
         subInputLayout_LH = QHBoxLayout()
-        self.subStartPosText = QLabel('--:--:--,---')
-        self.subStartPosText.mouseDoubleClickEvent.connect(self.gotoMarkStart)
+        self.subStartPosText = EQLabel('--:--:--,---', self)
+        self.subStartPosText.setToolTip('Double click/Num 8/W to move to the marked position and start playing.')
         self.subStartPosText.setFixedWidth(80)
         self.subStartPosClear = QPushButton('Clear', clicked=self.clearSubStart)
         self.subStartPosClear.setToolTip('Clear subtitle start timestamp')
