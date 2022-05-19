@@ -52,7 +52,7 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
                              QFormLayout, QHBoxLayout, QLabel, QListView, QMessageBox, QPushButton,
                              QSizePolicy, QSlider, QStyle, QToolButton, QVBoxLayout, QWidget, QLineEdit, QPlainTextEdit,
-                             QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QProgressBar, QCheckBox, QToolTip)
+                             QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QProgressBar, QCheckBox, QToolTip, QGridLayout)
 from io import TextIOWrapper
 import re
 from inspect import currentframe
@@ -185,7 +185,7 @@ class PlayerControls(QWidget):
         self.playerMuted = False
 
         self.playButton = QToolButton(clicked=self.playClicked)
-        self.playButton.setToolTip('Press to play')
+        self.playButton.setToolTip('Press to play (Num 5/D)')
         self.playButton.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
 
         self.stopButton = QToolButton(clicked=self.stop)
@@ -273,10 +273,10 @@ class PlayerControls(QWidget):
 
     def playClicked(self):
         if self.playerState in (QMediaPlayer.StoppedState, QMediaPlayer.PausedState):
-            self.playButton.setToolTip('Press to play')
+            self.playButton.setToolTip('Press to play (Num 5/D)')
             self.play.emit()
         elif self.playerState == QMediaPlayer.PlayingState:
-            self.playButton.setToolTip('Press to pause')
+            self.playButton.setToolTip('Press to pause (Num 5/D)')
             self.pause.emit()
 
     def muteClicked(self):
@@ -760,6 +760,7 @@ class Player(QWidget):
         self.loadSubProgressBar = None
 
         self.player = QMediaPlayer()
+        self.player.setNotifyInterval(10)
 
         self.player.durationChanged.connect(self.durationChanged)
         self.player.positionChanged.connect(self.positionChanged)
@@ -791,7 +792,7 @@ class Player(QWidget):
         # self.probe.videoFrameProbed.connect(self.histogram.processFrame)
         self.probe.setSource(self.player)
 
-        openButton = QPushButton("Open", clicked=self.open)
+        openButton = QPushButton("Open Video", clicked=self.open)
         openButton.setToolTip('Open source video file')
 
         controls = PlayerControls(self)
@@ -818,9 +819,22 @@ class Player(QWidget):
         self.colorButton.setEnabled(True)
         self.colorButton.clicked.connect(self.showColorDialog)
 
+        self.embedSub = QLabel('\n\n')
+        self.embedSub.setAlignment(Qt.AlignHCenter | Qt.AlignBottom)
+        self.embedSub.setWordWrap(True)
+        self.embedSub.setFixedHeight(50)
+        self.embedSub.setAutoFillBackground(False)
+        self.embedSub.setAttribute(Qt.WA_TranslucentBackground)
+        self.embedSub.setStyleSheet("QLabel {background-color: rgba(0,0,0,0%), color : blue;}")
+
         displaySplitter = QSplitter(Qt.Horizontal)
         displaySplitter.setChildrenCollapsible(False)
-        displaySplitter.addWidget(self.videoWidget)
+        displaySplitter_L_Grid = QVBoxLayout()
+        displaySplitter_L_Grid.addWidget(self.videoWidget, 2)
+        displaySplitter_L_Grid.addWidget(self.embedSub)
+        displaySplitter_L = QWidget()
+        displaySplitter_L.setLayout(displaySplitter_L_Grid)
+        displaySplitter.addWidget(displaySplitter_L)
 
         controlLayout = QHBoxLayout()
         controlLayout.setContentsMargins(0, 0, 0, 0)
@@ -854,11 +868,11 @@ class Player(QWidget):
         self.moveBackwardTimeInput.textChanged.connect(self.getMoveTimeMS)
 
         moveForwardButton = QPushButton('Step Forward', clicked=self.seekForwardMS)
-        moveForwardButton.setToolTip('Step forward by designated amount and pause')
+        moveForwardButton.setToolTip('Step forward by designated amount and pause (Num 6/F)')
         moveForwardButton.setEnabled(True)
 
         moveBackwardButton = QPushButton('Step Backward', clicked=self.seekBackwardMS)
-        moveBackwardButton.setToolTip('Step backward by designated amount and pause')
+        moveBackwardButton.setToolTip('Step backward by designated amount and pause (Num 4/A')
         moveBackwardButton.setEnabled(True)
 
         self.currentPositionText = QLabel()
@@ -892,16 +906,16 @@ class Player(QWidget):
 
         displaySplitter.addWidget(self.subtitleDisplayTable)
         displaySplitter.setSizes([340, 340])
-        displaySplitter.setMinimumHeight(180)
+        displaySplitter.setMinimumHeight(250)
         # videoWidget does not resize on windowresize
         # displaySplitter.setStretchFactor(1, 1)
 
         getSubStartPos = QPushButton('Mark Start', clicked=self.markSubStart)
-        getSubStartPos.setToolTip('Mark starting point of subtitle with compensation applied. Keeps playing back by default, pauses if "Pause after mark" is checked.')
+        getSubStartPos.setToolTip('Mark starting point of subtitle with compensation applied. Keeps playing back by default, pauses if "Pause after mark" is checked. (Num 7/S)')
         getSubStartPos.setEnabled(True)
 
         getSubEndPos = QPushButton('Mark End', clicked=self.markSubEnd)
-        getSubEndPos.setToolTip('Mark end point of subtitle with compensation applied. Keeps playing back by default, pauses if "Pause after mark" is checked.')
+        getSubEndPos.setToolTip('Mark end point of subtitle with compensation applied. Keeps playing back by default, pauses if "Pause after mark" is checked. (Num 9/E)')
         getSubEndPos.setEnabled(True)
 
         subInputLayout = QHBoxLayout()
@@ -927,6 +941,7 @@ class Player(QWidget):
         subInputLayout_L.addLayout(subInputLayout_LH)
         subInputLayout_LH = QHBoxLayout()
         self.subStartPosText = QLabel('--:--:--,---')
+        self.subStartPosText.mouseDoubleClickEvent.connect(self.gotoMarkStart)
         self.subStartPosText.setFixedWidth(80)
         self.subStartPosClear = QPushButton('Clear', clicked=self.clearSubStart)
         self.subStartPosClear.setToolTip('Clear subtitle start timestamp')
@@ -959,7 +974,7 @@ class Player(QWidget):
         # subInputLayout_L.addLayout(subInputLayout_LH)
         subInputLayout_LH = QHBoxLayout()
         addSubToArray = QPushButton('Add Subtitle', clicked=self.addCurrentSub)
-        addSubToArray.setToolTip('Add subtitle text in the input box, with currently set timestamp, to the subtitle queue.')
+        addSubToArray.setToolTip('Add subtitle text in the input box, with currently set timestamp, to the subtitle queue. (Num 2/O)')
         subInputLayout_LH.addWidget(addSubToArray)
         subInputLayout_L.addLayout(subInputLayout_LH)
 
@@ -1155,7 +1170,6 @@ class Player(QWidget):
 
     def durationChanged(self, duration):
         duration /= 1000
-
         self.duration = duration
         self.slider.setMaximum(duration)
 
@@ -1206,7 +1220,12 @@ class Player(QWidget):
                 self.subtitleDisplayTable.scrollToItem(
                     self.subtitleDisplayTable.item(id, 0))
                 pass  # todo: enable highlight
-
+        total_text = ''
+        for id in idx:
+            total_text += self.subtitleDisplayTable.item(id, 2).text() + '\n'
+        if len(total_text) == 0:
+            total_text = '\n\n'
+        self.embedSub.setText(total_text)
         self.lastHighlightIndex = idx
 
     def metaDataChanged(self):
