@@ -608,6 +608,12 @@ class NumpadHelper(QObject):
                     self.m_widgets[0].keyInputModifier.setText('QWERTY Control Disabled')
                     self.m_widgets[0].keyInputModifier.setStyleSheet("color: black; border: 0px solid black;")
                     self.m_widgets[0].setStyleSheet('background-color: #f0f0f0')
+                self.m_widgets[0].moveForwardTimeInput.setStyleSheet('background-color: #ffffff')
+                self.m_widgets[0].moveBackwardTimeInput.setStyleSheet('background-color: #ffffff')
+                self.m_widgets[0].subInputBox.setStyleSheet('background-color: #ffffff')
+                self.m_widgets[0].compensationInput.setStyleSheet('background-color: #ffffff')
+                self.m_widgets[0].subtitleDisplayTable.setStyleSheet('background-color: #f8f8f8')
+
                 return True
 
             if event.key() == Qt.Key_D and self.keyboardInputInvalid:
@@ -868,6 +874,7 @@ class Player(QWidget):
         moveForwardTimeInputText.setText('Forward (ms): ')
 
         self.moveForwardTimeInput = QLineEdit(str(self.forwardTimeMs))
+        self.moveForwardTimeInput.setStyleSheet('background-color: #ffffff')
         numpadHelper.appendWidget(self.moveForwardTimeInput)
         self.moveForwardTimeInput.setToolTip('Sets the amount of time the playback moves forward when step forward button is pressed')
         self.moveForwardTimeInput.setEnabled(True)
@@ -878,6 +885,7 @@ class Player(QWidget):
         moveBackwardTimeInputText.setText('Backward (ms): ')
 
         self.moveBackwardTimeInput = QLineEdit(str(self.backwardTimeMs))
+        self.moveBackwardTimeInput.setStyleSheet('background-color: #ffffff')
         numpadHelper.appendWidget(self.moveBackwardTimeInput)
         self.moveBackwardTimeInput.setToolTip('Sets the amount of time the playback moves backward when step backward button is pressed')
         self.moveBackwardTimeInput.setFixedWidth(50)
@@ -899,14 +907,15 @@ class Player(QWidget):
         subInputBoxLabel.setText('Subtitle Text:')
 
         self.subInputBox = QPlainTextEdit()
+        self.subInputBox.setStyleSheet('background-color: #ffffff')
         numpadHelper.appendWidget(self.subInputBox)
         self.subInputBox.setToolTip('Enter subtitle text to be added to the subtitle array at the marked start and end positions')
         self.subInputBox.setEnabled(True)
         self.subInputBox.setWordWrapMode(QTextOption.WordWrap)
         self.subInputBox.setMaximumHeight(120)
 
-        self.subtitleDisplayTable = SubDataTableWidget(
-            self)  # QTableWidget(1, 4)
+        self.subtitleDisplayTable = SubDataTableWidget(self)  # QTableWidget(1, 4)
+        self.subtitleDisplayTable.setStyleSheet('background-color: #f8f8f8')
         self.subtitleDisplayTable.setMinimumWidth(320)
         self.subtitleDisplayTable.setMinimumHeight(180)
         self.subtitleDisplayTable.setEnabled(True)
@@ -943,6 +952,7 @@ class Player(QWidget):
         subInputLayout_LH = QHBoxLayout()
         compensationLabelText = QLabel('Reaction Compensation (ms):')
         self.compensationInput = QLineEdit(str(self.compensationTimeMs))
+        self.compensationInput.setStyleSheet('background-color: #ffffff')
         self.compensationInput.setToolTip('Compensate for subtitle marking reflex by the amount of time set. Range is from 0 to -2000 ms')
         self.compensationInput.setFixedWidth(40)
         self.compensationInput.textChanged.connect(self.getCompensationTimeMs)
