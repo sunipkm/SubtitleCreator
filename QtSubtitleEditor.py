@@ -758,7 +758,6 @@ class Player(QWidget):
         super(Player, self).__init__(parent)
 
         self.setStyleSheet('background-color: #f0f0f0')
-        self.setWindowFlags(self.windowFlags() & Qt.WindowContextHelpButtonHint)
         self.colorDialog = None
         self.errorMessageDialog = None
         self.errorMessageTextWidget = None
