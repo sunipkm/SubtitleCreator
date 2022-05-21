@@ -224,6 +224,7 @@ class PlayerControls(QWidget):
 
         self.rateBox = QComboBox(activated=self.updateRate)
         self.rateBox.setToolTip('Change playback speed')
+        self.rateBox.setStyleSheet('background-color: #ffffff')
         self.rateBox.addItem("0.10x", 0.1)
         self.rateBox.addItem("0.25x", 0.25)
         self.rateBox.addItem("0.50x", 0.5)
@@ -344,11 +345,14 @@ class DoubleSlider(QSlider):
     def setValue(self, value):
         super(DoubleSlider, self).setValue(int(value * self._multi))
 
+
 class Player(QWidget):  # forward declaration
     pass
 
+
 class SubDataTableWidget(QTableWidget):
     pass
+
 
 class SRTData(QThread):
     """
@@ -404,7 +408,10 @@ class SRTData(QThread):
                     datastr += line
                 else:
                     data.append(datastr)
-                    self.addItem(data[0], data[1], data[2])
+                    if self.current_lines != self.total_lines and self.current_lines % 20:
+                        self.addItem(data[0], data[1], data[2], False)
+                    else:
+                        self.addItem(data[0], data[1], data[2], True)
                     data = None
                     nextLineIsData = False
             elif re.match('^[0-9]*$', line):
@@ -426,7 +433,7 @@ class SRTData(QThread):
             stream.write('%s\n' % (data[2]))
             stream.write('\n')
 
-    def addItem(self, start: int, stop: int, text: str):
+    def addItem(self, start: int, stop: int, text: str, updateStuff: bool = True):
         """
         Add a new subtitle entry.
 
@@ -458,8 +465,26 @@ class SRTData(QThread):
             for i in idx:
                 del self.rawdata[i]
         self.rawdata.append([start, stop, text])
+        if updateStuff:
+            self.rawdata.sort(key=self.getSortKey)
+            self.updateDisplayTable(True)
+            startdata = [d[0] for d in self.rawdata]
+            enddata = [d[1] for d in self.rawdata]
+            self.tstampdata = np.asarray([startdata, enddata])
+        return
+
+    def addOffset(self, milliseconds: int) -> None:
+        try:
+            start = self.rawdata[0][0]
+            if start < 0:
+                return
+        except Exception:
+            return
+        for item in self.rawdata:
+            item[0] += milliseconds
+            item[1] += milliseconds
         self.rawdata.sort(key=self.getSortKey)
-        self.updateDisplayTable(True)
+        self.updateDisplayTable()
         startdata = [d[0] for d in self.rawdata]
         enddata = [d[1] for d in self.rawdata]
         self.tstampdata = np.asarray([startdata, enddata])
@@ -582,6 +607,7 @@ class SRTData(QThread):
         output += '%s\n\n' % (data[2])
         return output
 
+
 class NumpadHelper(QObject):
     def __init__(self, parent=None):
         super(NumpadHelper, self).__init__(parent)
@@ -612,6 +638,8 @@ class NumpadHelper(QObject):
                 self.m_widgets[0].moveBackwardTimeInput.setStyleSheet('background-color: #ffffff')
                 self.m_widgets[0].subInputBox.setStyleSheet('background-color: #ffffff')
                 self.m_widgets[0].compensationInput.setStyleSheet('background-color: #ffffff')
+                self.m_widgets[0].subOffsetInputBox.setStyleSheet('background-color: #ffffff')
+                self.m_widgets[0].controls.rateBox.setStyleSheet('background-color: #ffffff')
                 self.m_widgets[0].subtitleDisplayTable.setStyleSheet('background-color: #f8f8f8')
 
                 return True
@@ -676,7 +704,20 @@ class NumpadHelper(QObject):
             elif event.key() == Qt.Key_8 and numpad_mod:
                 self.m_widgets[0].gotoMarkStart()
                 return True
+            elif event.key() == Qt.Key_0 and numpad_mod:
+                return True
+            elif event.key() == Qt.Key_Period and numpad_mod:
+                return True
+            elif event.key() == Qt.Key_Plus and numpad_mod:
+                return True
+            elif event.key() == Qt.Key_Minus and numpad_mod:
+                return True
+            elif event.key() == Qt.Key_Asterisk and numpad_mod:
+                return True
+            elif event.key() == Qt.Key_Slash and numpad_mod:
+                return True
         return super(NumpadHelper, self).eventFilter(obj, event)
+
 
 class Delegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
@@ -691,6 +732,7 @@ class Delegate(QStyledItemDelegate):
             return None
         else:
             return None
+
 
 class SubDataTableWidget(QTableWidget):
     def __init__(self, parent: Player, stream: TextIOWrapper = None):
@@ -756,8 +798,8 @@ class SubDataTableWidget(QTableWidget):
             return
         self.subtitleData.addItem(start, stop, text)
 
-class Player(QWidget):
 
+class Player(QWidget):
     fullScreenChanged = pyqtSignal(bool)
 
     def __init__(self, playlist, parent=None):
@@ -819,6 +861,7 @@ class Player(QWidget):
         openButton.setToolTip('Open source video file')
 
         controls = PlayerControls(self)
+        self.controls = controls
         controls.setState(self.player.state())
         controls.setVolume(self.player.volume())
         controls.setMuted(controls.isMuted())
@@ -912,7 +955,7 @@ class Player(QWidget):
         self.subInputBox.setToolTip('Enter subtitle text to be added to the subtitle array at the marked start and end positions')
         self.subInputBox.setEnabled(True)
         self.subInputBox.setWordWrapMode(QTextOption.WordWrap)
-        self.subInputBox.setMaximumHeight(120)
+        self.subInputBox.setMaximumHeight(100)
 
         self.subtitleDisplayTable = SubDataTableWidget(self)  # QTableWidget(1, 4)
         self.subtitleDisplayTable.setStyleSheet('background-color: #f8f8f8')
@@ -1019,9 +1062,26 @@ class Player(QWidget):
 
         subInputLayout.addLayout(subInputLayout_L, stretch=1)
 
+        self.subOffsetS = 10 # seconds
+
         subInputLayout_R = QVBoxLayout()
+        subInputLayout_RH = QHBoxLayout()
+        self.subOffsetInputBox = QLineEdit('%s%.3f'%('+' if self.subOffsetS > 0 else '-', self.subOffsetS))
+        # self.subOffsetInputBox.setInputMask('#n.nnn')
+        # self.subOffsetInputBox.textChanged.connect(self.getSubOffsetS)
+        self.subOffsetInputBox.setFixedWidth(60)
+        self.subOffsetInputBox.setStyleSheet('background-color: #ffffff')
+        subOffsetInputLabel = QLabel('Subtitle Offset:')
+        subOffsetApplyButton = QPushButton('Apply Offset', clicked = self.applySubOffset)
+        subInputLayout_RH.addWidget(subOffsetInputLabel)
+        subInputLayout_RH.addWidget(self.subOffsetInputBox)
+        subInputLayout_RH.addStretch(1)
+        subInputLayout_RH.addWidget(subOffsetApplyButton)
+        subInputLayout_R.addLayout(subInputLayout_RH)
         subInputLayout_R.addWidget(subInputBoxLabel)
         subInputLayout_R.addWidget(self.subInputBox)
+
+        numpadHelper.appendWidget(self.subOffsetInputBox)
 
         subInputLayout.addLayout(subInputLayout_R, stretch=2)
 
@@ -1287,7 +1347,29 @@ class Player(QWidget):
             if val < 10000: # 10 seconds
                 self.player.setPosition(progress - val)
                 self.player.play()
-        
+
+    def getSubOffsetS(self):
+        val = self.subOffsetS
+        try:
+            print(self.subOffsetInputBox.text())
+            val = round(float(self.subOffsetInputBox.text()) * 1000) / 1000
+            print(val)
+        except Exception:
+            return
+        self.subOffsetInputBox.setText('%s%.3f'%('+' if val > 0 else '', val))
+        self.subOffsetS = val
+        return
+    
+    def applySubOffset(self):
+        try:
+            # print(self.subOffsetInputBox.text())
+            val = round(float(self.subOffsetInputBox.text()) * 1000) / 1000
+            # print(val)
+        except Exception:
+            return
+        self.subOffsetInputBox.setText('%s%.3f'%('+' if val > 0 else '', val))
+        self.subtitleDisplayTable.subtitleData.addOffset(round(val * 1000))
+
     def getCompensationTimeMs(self):
         try:
             val = int(self.compensationInput.text())
