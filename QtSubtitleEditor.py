@@ -1073,6 +1073,7 @@ class Player(QWidget):
         self.subOffsetInputBox.setStyleSheet('background-color: #ffffff')
         subOffsetInputLabel = QLabel('Subtitle Offset:')
         subOffsetApplyButton = QPushButton('Apply Offset', clicked = self.applySubOffset)
+        subOffsetApplyButton.setToolTip('Apply the currently set offset to all the subtitles in the table')
         subInputLayout_RH.addWidget(subOffsetInputLabel)
         subInputLayout_RH.addWidget(self.subOffsetInputBox)
         subInputLayout_RH.addStretch(1)
