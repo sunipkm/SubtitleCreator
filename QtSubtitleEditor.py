@@ -1000,14 +1000,22 @@ class Player(QWidget):
         self.compensationInput.setFixedWidth(40)
         self.compensationInput.textChanged.connect(self.getCompensationTimeMs)
         numpadHelper.appendWidget(self.compensationInput)
-        self.pauseOnMarkIfPlaying = QCheckBox('Pause after mark')
-        self.pauseOnMarkIfPlaying.setToolTip('Enables pausing when subtitle begin/end are marked with video playing')
+        self.pauseOnMarkIfPlaying = QCheckBox('Pause after mark start')
+        self.pauseOnMarkIfPlaying.setToolTip('Enables pausing when subtitle begin is marked with video playing')
         self.pauseOnMarkIfPlaying.setChecked(False)
         self.pauseOnMarkIfPlaying.setTristate(False)
+        self.pauseOnMarkEndIfPlaying = QCheckBox('Pause after mark end')
+        self.pauseOnMarkEndIfPlaying.setToolTip('Enables pausing when subtitle end is marked with video playing')
+        self.pauseOnMarkEndIfPlaying.setChecked(True)
+        self.pauseOnMarkEndIfPlaying.setTristate(False)
         subInputLayout_LH.addWidget(compensationLabelText)
         subInputLayout_LH.addWidget(self.compensationInput)
         subInputLayout_LH.addStretch(1)
+        subInputLayout_L.addLayout(subInputLayout_LH)
+        subInputLayout_LH = QHBoxLayout()
         subInputLayout_LH.addWidget(self.pauseOnMarkIfPlaying)
+        subInputLayout_LH.addStretch(1)
+        subInputLayout_LH.addWidget(self.pauseOnMarkEndIfPlaying)
         subInputLayout_L.addLayout(subInputLayout_LH)
         subInputLayout_LH = QHBoxLayout()
         self.subStartPosText = EQLabel('--:--:--,---', self)
@@ -1212,7 +1220,7 @@ class Player(QWidget):
                 self.player.setPosition(self.subEndPos)
         self.subEndPosText.setText(SRTData.tstampToStr(self.subEndPos))
         self.subEndPosClear.setEnabled(True)
-        if not self.pauseOnMarkIfPlaying.isChecked() and state == QMediaPlayer.PlayingState:
+        if not self.pauseOnMarkEndIfPlaying.isChecked() and state == QMediaPlayer.PlayingState:
             self.player.play()
 
     def selectSub(self, start, end, text):
@@ -1281,36 +1289,43 @@ class Player(QWidget):
                 if old_idx in idx:
                     pass
                 else:  # disable this one
-                    old_color = self.lastBackgroundColor[old_idx]
-                    if (old_color.name() == '#000000'):
-                        old_color = QColor('white')
-                    self.subtitleDisplayTable.item(
-                        old_idx, 0).setBackground(old_color)
-                    self.subtitleDisplayTable.item(
-                        old_idx, 1).setBackground(old_color)
-                    self.subtitleDisplayTable.item(
-                        old_idx, 2).setBackground(old_color)
-                    del self.lastBackgroundColor[old_idx]
-                    pass  # todo: disable highlight
+                    try:
+                        old_color = self.lastBackgroundColor[old_idx]
+                        if (old_color.name() == '#000000'):
+                            old_color = QColor('white')
+                        self.subtitleDisplayTable.item(
+                            old_idx, 0).setBackground(old_color)
+                        self.subtitleDisplayTable.item(
+                            old_idx, 1).setBackground(old_color)
+                        self.subtitleDisplayTable.item(
+                            old_idx, 2).setBackground(old_color)
+                        del self.lastBackgroundColor[old_idx]
+                    except Exception:
+                        pass  # todo: disable highlight
 
         for id in idx:
             if id in self.lastHighlightIndex:  # already highlighted
                 pass
             else:
-                self.lastBackgroundColor[id] = self.subtitleDisplayTable.item(
-                    id, 0).background().color()
-                self.subtitleDisplayTable.item(
-                    id, 0).setBackground(QColor(0xfc9803))
-                self.subtitleDisplayTable.item(
-                    id, 1).setBackground(QColor(0xfc9803))
-                self.subtitleDisplayTable.item(
-                    id, 2).setBackground(QColor(0xfc9803))
-                self.subtitleDisplayTable.scrollToItem(
-                    self.subtitleDisplayTable.item(id, 0))
-                pass  # todo: enable highlight
+                try:
+                    self.lastBackgroundColor[id] = self.subtitleDisplayTable.item(
+                        id, 0).background().color()
+                    self.subtitleDisplayTable.item(
+                        id, 0).setBackground(QColor(0xfc9803))
+                    self.subtitleDisplayTable.item(
+                        id, 1).setBackground(QColor(0xfc9803))
+                    self.subtitleDisplayTable.item(
+                        id, 2).setBackground(QColor(0xfc9803))
+                    self.subtitleDisplayTable.scrollToItem(
+                        self.subtitleDisplayTable.item(id, 0))
+                except Exception:
+                    pass  # todo: enable highlight
         total_text = ''
         for id in idx:
-            total_text += self.subtitleDisplayTable.item(id, 2).text() + '\n'
+            try:
+                total_text += self.subtitleDisplayTable.item(id, 2).text() + '\n'
+            except Exception:
+                pass
         if len(total_text) == 0:
             total_text = '\n\n'
         self.embedSub.setText(total_text)
