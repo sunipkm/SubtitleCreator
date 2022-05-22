@@ -473,6 +473,17 @@ class SRTData(QThread):
             self.tstampdata = np.asarray([startdata, enddata])
         return
 
+    def deleteItem(self, row: int):
+        try:
+            del self.rawdata[row]
+            self.rawdata.sort(key=self.getSortKey)
+            self.updateDisplayTable(True)
+            startdata = [d[0] for d in self.rawdata]
+            enddata = [d[1] for d in self.rawdata]
+            self.tstampdata = np.asarray([startdata, enddata])
+        except Exception:
+            return
+
     def addOffset(self, milliseconds: int) -> None:
         try:
             start = self.rawdata[0][0]
@@ -773,10 +784,7 @@ class SubDataTableWidget(QTableWidget):
             # delete data
             row = self.selectedItem.row()
             print('Delete:', row)
-            try:
-                del self.subtitleData.rawdata[row]
-            except Exception:
-                pass
+            self.subtitleData.deleteItem(row)
         else:
             super(SubDataTableWidget, self).keyPressEvent(event)
         self.subtitleData.updateDisplayTable()
