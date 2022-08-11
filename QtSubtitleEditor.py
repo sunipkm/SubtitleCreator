@@ -374,8 +374,8 @@ class SRTData(QThread):
             table.setColumnCount(3)
         self.updateDisplayTable()
 
-    def __del__(self):
-        self.wait()
+    # def __del__(self):
+    #     self.wait()
 
     def loadSRT(self, stream: TextIOWrapper):
         if stream is None:
