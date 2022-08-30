@@ -23,4 +23,4 @@ The control surface is toggled by pressing Ctrl + Tab.
   W: Move to position marked as start and start playing <br>
   Q: Move to nearest previous subtitle (within 10 s) and start playing <br>
 
-### Note: Requires K-Light Codec Pack to be installed to play videos in the application. Currently tested in Windows only (with latest Anaconda3)
+### Note: Requires K-Light Codec Pack to be installed to play videos in the application on Windows 10 (with Anaconda3, 2021.11). Linux requires installation of adequate GStreamer plugins.

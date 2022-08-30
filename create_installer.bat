@@ -1,1 +1,1 @@
-pyinstaller --onefile --windowed --icon=mplayer.ico main.py
+pyinstaller --onefile --windowed --icon=mplayer.ico QtSubtitleEditor.py
